@@ -22,12 +22,30 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import org.tensorflow.lite.DataType;
 import org.tensorflow.lite.Interpreter;
+import org.tensorflow.lite.support.common.TensorProcessor;
+import org.tensorflow.lite.support.image.TensorImage;
+import org.tensorflow.lite.support.tensorbuffer.TensorBuffer;
+import org.tensorflow.lite.support.common.FileUtil;
+import org.tensorflow.lite.support.common.TensorOperator;
+
+import org.tensorflow.lite.support.common.ops.NormalizeOp;
+import org.tensorflow.lite.support.image.ImageProcessor;
+
+import org.tensorflow.lite.support.image.ops.ResizeOp;
+import org.tensorflow.lite.support.image.ops.ResizeWithCropOrPadOp;
+import org.tensorflow.lite.support.image.ops.Rot90Op;
+import org.tensorflow.lite.support.label.TensorLabel;
+
 
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 public class MainActivity extends AppCompatActivity {
     private static final int PERMISION_CODE = 1000 ;
@@ -38,6 +56,16 @@ public class MainActivity extends AppCompatActivity {
     Uri image_url;
     Bitmap ubit;
     TextView output;
+    private List<String> labels;
+    private int imageSizeY;
+    private int imageSizeX;
+    private TensorImage inputImageBuffer;
+    private  TensorBuffer outputProbabilityBuffer;
+    private  TensorProcessor probabilityProcessor;
+    private static final float IMAGE_MEAN = 0.0f;
+    private static final float IMAGE_STD = 1.0f;
+    private static final float PROBABILITY_MEAN = 0.0f;
+    private static final float PROBABILITY_STD = 255.0f;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -118,6 +146,7 @@ public class MainActivity extends AppCompatActivity {
                 ImageDecoder.Source source = ImageDecoder.createSource(this.getContentResolver(),image_url);
                 try {
                     ubit = ImageDecoder.decodeBitmap(source);
+                    ubit = ubit.copy(Bitmap.Config.ARGB_8888, true);
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -128,15 +157,80 @@ public class MainActivity extends AppCompatActivity {
                     e.printStackTrace();
                 }
             }
+
             Bitmap resized = Bitmap. createScaledBitmap ( ubit , 150 , 150 , false ) ;
             int X = resized.getWidth();
             int Y = resized.getHeight();
+
             Log.d("adohgaya","hmm ok" + String.valueOf(X));
             Log.d("adohgaya","hmm ok" + String.valueOf(Y));
 
             img.setImageBitmap(resized);
+            doinference(ubit);
         }
 
 
     }
+
+    private void doinference(Bitmap ubit) {
+        int imageTensorIndex = 0;
+        int[] imageShape = tflite.getInputTensor(imageTensorIndex).shape(); // {1, height, width, 3}
+        imageSizeY = imageShape[1];
+        imageSizeX = imageShape[2];
+        DataType imageDataType = tflite.getInputTensor(imageTensorIndex).dataType();
+
+            int probabilityTensorIndex = 0;
+        int[] probabilityShape =
+                tflite.getOutputTensor(probabilityTensorIndex).shape(); // {1, NUM_CLASSES}
+        DataType probabilityDataType = tflite.getOutputTensor(probabilityTensorIndex).dataType();
+
+        inputImageBuffer = new TensorImage(imageDataType);
+        outputProbabilityBuffer = TensorBuffer.createFixedSize(probabilityShape, probabilityDataType);
+        probabilityProcessor = new TensorProcessor.Builder().add(getPostprocessNormalizeOp()).build();
+
+        inputImageBuffer = loadImage(ubit);
+//
+        tflite.run(inputImageBuffer.getBuffer(),outputProbabilityBuffer.getBuffer().rewind());
+        showresult();
+    }
+    private TensorOperator getPreprocessNormalizeOp() {
+        return new NormalizeOp(IMAGE_MEAN, IMAGE_STD);
+    }
+    private TensorOperator getPostprocessNormalizeOp(){
+        return new NormalizeOp(PROBABILITY_MEAN, PROBABILITY_STD);
+    }
+    private TensorImage loadImage(final Bitmap bitmap) {
+        // Loads bitmap into a TensorImage.
+        inputImageBuffer.load(bitmap);
+
+        // Creates processor for the TensorImage.
+        int cropSize = Math.min(bitmap.getWidth(), bitmap.getHeight());
+        // TODO(b/143564309): Fuse ops inside ImageProcessor.
+        ImageProcessor imageProcessor =
+                new ImageProcessor.Builder()
+                        .add(new ResizeWithCropOrPadOp(cropSize, cropSize))
+                        .add(new ResizeOp(imageSizeX, imageSizeY, ResizeOp.ResizeMethod.NEAREST_NEIGHBOR))
+                        .add(getPreprocessNormalizeOp())
+                        .build();
+        return imageProcessor.process(inputImageBuffer);
+    }
+    private void showresult(){
+
+        try{
+            labels = FileUtil.loadLabels(this,"fram.txt");
+        }catch (Exception e){
+            e.printStackTrace();
+        }
+        Map<String, Float> labeledProbability =
+                new TensorLabel(labels, probabilityProcessor.process(outputProbabilityBuffer))
+                        .getMapWithFloatValue();
+        float maxValueInMap =(Collections.max(labeledProbability.values()));
+
+        for (Map.Entry<String, Float> entry : labeledProbability.entrySet()) {
+            if (entry.getValue()==maxValueInMap) {
+                output.setText(entry.getKey());
+            }
+        }
+    }
+
 }
