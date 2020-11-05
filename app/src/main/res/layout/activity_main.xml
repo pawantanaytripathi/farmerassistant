@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
-    android:gravity="center_horizontal"
+    android:gravity="center"
     android:orientation="vertical"
     android:layout_height="match_parent"
     tools:context=".MainActivity">
@@ -11,7 +11,7 @@
     <ImageView
         android:id="@+id/image_view"
         android:layout_width="match_parent"
-        android:layout_height="250dp"
+        android:layout_height="350dp"
         android:scaleType="centerCrop"
         android:src="@drawable/ic_baseline_wallpaper_24" />
 
@@ -21,6 +21,9 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Capture Image "
+        android:layout_marginBottom="50dp"
+
+        android:layout_marginTop="50dp"
         android:textSize="30dp" />
     <TextView
         android:id="@+id/output"

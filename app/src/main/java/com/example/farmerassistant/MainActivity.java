@@ -13,6 +13,7 @@ import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
+import android.widget.AutoCompleteTextView;
 import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -165,7 +166,7 @@ public class MainActivity extends AppCompatActivity {
             Log.d("adohgaya","hmm ok" + String.valueOf(X));
             Log.d("adohgaya","hmm ok" + String.valueOf(Y));
 
-            img.setImageBitmap(resized);
+//            img.setImageBitmap(resized);
             doinference(ubit);
 
         }
@@ -229,7 +230,21 @@ public class MainActivity extends AppCompatActivity {
 
         for (Map.Entry<String, Float> entry : labeledProbability.entrySet()) {
             if (entry.getValue()==maxValueInMap) {
-                output.setText(entry.getKey());
+//                output.setText(entry.getKey());
+                Intent i = new Intent(this,MainActivity2.class);
+
+
+//Create the bundle
+                Bundle bundle = new Bundle();
+
+//Add your data to bundle
+                bundle.putString("stuff",entry.getKey());
+
+//Add the bundle to the intent
+                i.putExtras(bundle);
+
+//Fire that second activity
+                startActivity(i);
             }
         }
     }
