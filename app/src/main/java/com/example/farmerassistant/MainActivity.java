@@ -167,6 +167,7 @@ public class MainActivity extends AppCompatActivity {
 
             img.setImageBitmap(resized);
             doinference(ubit);
+
         }
 
 
